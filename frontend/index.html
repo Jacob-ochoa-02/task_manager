@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Task Manager — AWS Serverless</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #232f3e 0%, #1a252f 100%);
+      color: white;
+      padding: 1.2rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    header .logo {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    header .badge {
+      background: #ff9900;
+      color: #111;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 1rem;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .form-row input[type="text"] {
+      flex: 1;
+      padding: 0.6rem 0.9rem;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+    .form-row input[type="text"]:focus {
+      outline: none;
+      border-color: #ff9900;
+    }
+    .form-row select {
+      padding: 0.6rem 0.9rem;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: white;
+      cursor: pointer;
+    }
+    .btn {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: #ff9900; color: #111; }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-danger:hover { opacity: 0.85; }
+    .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
+
+    .filters {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 0.35rem 0.9rem;
+      border: 1.5px solid #ddd;
+      border-radius: 20px;
+      background: white;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn.active {
+      background: #232f3e;
+      color: white;
+      border-color: #232f3e;
+    }
+
+    #task-list { list-style: none; }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background 0.15s;
+      border-radius: 8px;
+    }
+    .task-item:hover { background: #fafafa; }
+    .task-item:last-child { border-bottom: none; }
+
+    .task-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #ff9900;
+    }
+
+    .task-title {
+      flex: 1;
+      font-size: 0.95rem;
+    }
+    .task-title.done {
+      text-decoration: line-through;
+      color: #aaa;
+    }
+
+    .priority-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+    .priority-high   { background: #fee2e2; color: #991b1b; }
+    .priority-medium { background: #fef3c7; color: #92400e; }
+    .priority-low    { background: #dcfce7; color: #166534; }
+
+    .task-date {
+      font-size: 0.78rem;
+      color: #aaa;
+      white-space: nowrap;
+    }
+
+    .stats {
+      display: flex;
+      gap: 1rem;
+    }
+    .stat-box {
+      flex: 1;
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-box .num {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #232f3e;
+    }
+    .stat-box .lbl {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+    .empty {
+      text-align: center;
+      padding: 2.5rem;
+      color: #bbb;
+      font-size: 0.9rem;
+    }
+
+    #status-bar {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #232f3e;
+      color: white;
+      padding: 0.6rem 1.4rem;
+      border-radius: 24px;
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    #status-bar.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ Task Manager</div>
+  <div class="badge">AWS Serverless</div>
+</header>
+
+<main>
+  <!-- Stats -->
+  <div class="card">
+    <div class="stats">
+      <div class="stat-box">
+        <div class="num" id="stat-total">–</div>
+        <div class="lbl">Total tareas</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" id="stat-pending">–</div>
+        <div class="lbl">Pendientes</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" id="stat-done">–</div>
+        <div class="lbl">Completadas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nueva tarea -->
+  <div class="card">
+    <h2>Nueva tarea</h2>
+    <div class="form-row">
+      <input type="text" id="task-input" placeholder="¿Qué necesitas hacer?" maxlength="120"/>
+      <select id="priority-select">
+        <option value="medium">Media</option>
+        <option value="high">Alta</option>
+        <option value="low">Baja</option>
+      </select>
+      <button class="btn btn-primary" onclick="createTask()">+ Agregar</button>
+    </div>
+  </div>
+
+  <!-- Lista -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 style="margin:0">Mis tareas</h2>
+      <div class="filters">
+        <button class="filter-btn active" onclick="setFilter('all', this)">Todas</button>
+        <button class="filter-btn" onclick="setFilter('pending', this)">Pendientes</button>
+        <button class="filter-btn" onclick="setFilter('done', this)">Hechas</button>
+      </div>
+    </div>
+    <ul id="task-list">
+      <li class="loading">Cargando tareas…</li>
+    </ul>
+  </div>
+</main>
+
+<div id="status-bar"></div>
+
+<script>
+  // ─── CONFIG ───────────────────────────────────────────────────────────────
+  const API_BASE = 'https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod';
+
+  // ─── STATE ────────────────────────────────────────────────────────────────
+  let tasks = [];
+  let currentFilter = 'all';
+
+  // ─── INIT ─────────────────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', fetchTasks);
+
+  // ─── API CALLS ────────────────────────────────────────────────────────────
+  async function fetchTasks() {
+    try {
+      const res = await fetch(`${API_BASE}/tasks`);
+      tasks = await res.json();
+      renderTasks();
+      updateStats();
+    } catch (e) {
+      document.getElementById('task-list').innerHTML =
+        '<li class="empty">Error al cargar tareas. Verifica la configuración de la API.</li>';
+    }
+  }
+
+  async function createTask() {
+    const input = document.getElementById('task-input');
+    const priority = document.getElementById('priority-select').value;
+    const title = input.value.trim();
+    if (!title) { input.focus(); return; }
+
+    try {
+      const res = await fetch(`${API_BASE}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, priority }),
+      });
+      const task = await res.json();
+      tasks.unshift(task);
+      input.value = '';
+      renderTasks();
+      updateStats();
+      showStatus('✅ Tarea creada');
+    } catch (e) { showStatus('❌ Error al crear tarea'); }
+  }
+
+  async function toggleTask(id) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const updated = { ...task, done: !task.done };
+    try {
+      await fetch(`${API_BASE}/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+      task.done = updated.done;
+      renderTasks();
+      updateStats();
+    } catch (e) { showStatus('❌ Error al actualizar'); }
+  }
+
+  async function deleteTask(id) {
+    try {
+      await fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' });
+      tasks = tasks.filter(t => t.id !== id);
+      renderTasks();
+      updateStats();
+      showStatus('🗑️ Tarea eliminada');
+    } catch (e) { showStatus('❌ Error al eliminar'); }
+  }
+
+  // ─── RENDER ───────────────────────────────────────────────────────────────
+  function renderTasks() {
+    const list = document.getElementById('task-list');
+    const filtered = tasks.filter(t => {
+      if (currentFilter === 'pending') return !t.done;
+      if (currentFilter === 'done')    return t.done;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<li class="empty">No hay tareas aquí 🎉</li>';
+      return;
+    }
+
+    const priorityLabel = { high: 'Alta', medium: 'Media', low: 'Baja' };
+    const priorityClass = { high: 'priority-high', medium: 'priority-medium', low: 'priority-low' };
+
+    list.innerHTML = filtered.map(t => `
+      <li class="task-item">
+        <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}')"/>
+        <span class="task-title ${t.done ? 'done' : ''}">${escapeHtml(t.title)}</span>
+        <span class="priority-badge ${priorityClass[t.priority] || 'priority-medium'}">
+          ${priorityLabel[t.priority] || 'Media'}
+        </span>
+        <span class="task-date">${formatDate(t.createdAt)}</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">✕</button>
+      </li>
+    `).join('');
+  }
+
+  function updateStats() {
+    const total   = tasks.length;
+    const done    = tasks.filter(t => t.done).length;
+    const pending = total - done;
+    document.getElementById('stat-total').textContent   = total;
+    document.getElementById('stat-pending').textContent = pending;
+    document.getElementById('stat-done').textContent    = done;
+  }
+
+  function setFilter(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTasks();
+  }
+
+  // ─── UTILS ────────────────────────────────────────────────────────────────
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-CO', { day:'2-digit', month:'short' });
+  }
+
+  let statusTimer;
+  function showStatus(msg) {
+    const bar = document.getElementById('status-bar');
+    bar.textContent = msg;
+    bar.classList.add('show');
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => bar.classList.remove('show'), 2500);
+  }
+
+  document.getElementById('task-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') createTask();
+  });
+</script>
+</body>
+</html>
